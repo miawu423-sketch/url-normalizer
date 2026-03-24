@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL 智能归一化工具</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --card-bg: #16161e;
+    --border: #2a2a3f;
+    --accent: #7c6af7;
+    --accent2: #4ecdc4;
+    --accent3: #f7a26a;
+    --danger: #ff6b6b;
+    --success: #51cf66;
+    --warning: #fcc419;
+    --text: #e8e6f0;
+    --text-dim: #8888aa;
+    --text-dimmer: #55556a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Noto Sans SC', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px 80px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(124,106,247,0.1) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 1400px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    padding-left: 46px;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dimmer);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-bar.loading .status-dot { background: var(--accent); animation: pulse 1s infinite; }
+  .status-bar.ok     .status-dot { background: var(--success); }
+  .status-bar.warn   .status-dot { background: var(--warning); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .input-section { margin-bottom: 16px; }
+
+  label.field-label {
+    display: block;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 7px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  
+  input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,106,247,0.1);
+  }
+  input[type="text"]::placeholder { color: var(--text-dimmer); }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+
+  button {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    flex: 1;
+  }
+  .btn-primary:hover { background: #6a59e0; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(124,106,247,0.3); }
+  .btn-primary:active { transform: none; }
+
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  .btn-small {
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+
+  /* 参数分析面板 */
+  .param-analysis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: none;
+  }
+  
+  .param-analysis.active { display: block; }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 16px;
+  }
+
+  .param-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+  }
+
+  .param-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .param-importance {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .param-name {
+    flex: 1;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .param-hint {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+  }
+
+  /* 方案列表 */
+  .variants-section {
+    display: none;
+  }
+  
+  .variants-section.active { display: block; }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .section-header h2 {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--accent2);
+    margin: 0;
+  }
+
+  /* 横向网格布局 */
+  #variantsList {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 20px;
+  }
+
+  .variant-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 580px;
+  }
+
+  .variant-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .variant-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent3);
+  }
+
+  .params-detail {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 10.5px;
+    line-height: 1.5;
+  }
+
+  .params-removed,
+  .params-kept {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+  }
+
+  .params-removed {
+    color: var(--text-dim);
+  }
+
+  .params-removed code {
+    background: rgba(255, 107, 107, 0.1);
+    color: var(--danger);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .params-kept {
+    color: var(--text-dim);
+  }
+
+  .params-kept code {
+    background: rgba(81, 207, 102, 0.1);
+    color: var(--success);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .variant-url-editable {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .variant-url-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    word-break: break-all;
+    transition: border-color 0.2s;
+  }
+
+  .variant-url-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+  }
+
+  .variant-url-input[readonly] {
+    background: var(--bg);
+    cursor: not-allowed;
+    opacity: 0.8;
+  }
+
+  /* 预览窗口 */
+  .preview-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .preview-title {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+
+  .preview-iframe {
+    width: 100%;
+    height: 420px;
+    flex: 1;
+    width: 100%;
+    height: 300px;
+    border: none;
+    background: white;
+    display: block;
+    flex: 1;
+  }
+
+  .preview-status {
+    padding: 6px 10px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .preview-status.error {
+    color: var(--warning);
+  }
+
+  /* 响应式布局 */
+  @media (max-width: 1400px) {
+    #variantsList {
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    }
+  }
+
+  @media (max-width: 1000px) {
+    #variantsList {
+      grid-template-columns: 1fr;
+    }
+    
+    .variant-card {
+      min-height: auto;
+    }
+  }
+
+  .custom-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-top: 12px;
+  }
+
+  .custom-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin-bottom: 12px;
+  }
+
+  /* 规则学习系统 */
+  .learning-section {
+    margin-top: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .dual-input-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .dual-input-col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .col-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent2);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .learning-input textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  .learning-input textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+  }
+
+  .line-count {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  .validation-error {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #e74c3c;
+    line-height: 1.6;
+  }
+
+  .validation-error strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  @media (max-width: 1000px) {
+    .dual-input-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .learning-result {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 8px;
+  }
+
+  .result-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--success);
+    margin-bottom: 12px;
+  }
+
+  #learningStats {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+
+  #learnedRulesPreview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* 规则管理面板 */
+  .rule-manager {
+    margin-top: 20px;
+    background: var(--card-bg);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .manager-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  #rulesList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .rule-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .rule-domain {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent2);
+    margin-bottom: 8px;
+  }
+
+  .rule-details {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .rule-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    font-family: var(--mono);
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🎯</div>
+      <h1>URL 智能归一化工具</h1>
+    </div>
+    <p class="subtitle">智能参数分析 · 支持查询参数+Fragment · 方案与预览集成 · 一键验证</p>
+  </header>
+
+  <div class="status-bar loading" id="statusBar">
+    <div class="status-dot"></div>
+    <span id="statusText">正在加载规则库…</span>
+  </div>
+
+  <div class="input-section">
+    <label class="field-label">输入单个 URL 进行归一化</label>
+    <input type="text" id="inputUrl" placeholder="https://example.com/page?id=123&utm_source=twitter&lang=zh&fbclid=AbCdEf">
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-primary" onclick="startSmartNormalize()">🧠 智能分析</button>
+    <button class="btn-primary" onclick="startExhaustiveMode()">🔬 穷举模式</button>
+    <button class="btn-ghost" onclick="clearAll()">清空</button>
+  </div>
+
+  <!-- 参数分析面板 -->
+  <div class="param-analysis" id="paramAnalysis">
+    <div class="section-title">📊 参数重要性分析</div>
+    <div id="paramGrid"></div>
+  </div>
+
+  <!-- 方案与预览列表 -->
+  <div class="variants-section" id="variantsSection">
+    <div class="section-header">
+      <h2>归一化方案与预览</h2>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-ghost btn-small" onclick="openAllInTabs()">🗂️ 批量打开</button>
+        <button class="btn-ghost btn-small" onclick="refreshAllPreviews()">🔄 刷新预览</button>
+      </div>
+    </div>
+    
+    <div id="variantsList"></div>
+
+    <!-- 自定义方案 -->
+    <div class="custom-section" id="customSection" style="display: none;">
+      <div class="custom-title">✏️ 自定义方案</div>
+      <input type="text" id="customUrl" placeholder="手动编辑 URL...">
+      <button class="btn-ghost btn-small" style="margin-top: 10px;" onclick="addCustomVariant()">添加到预览</button>
+    </div>
+  </div>
+
+  <!-- 规则学习系统 -->
+  <div class="learning-section" id="learningSection">
+    <div class="section-header">
+      <h2>🧠 智能规则学习</h2>
+      <button class="btn-ghost btn-small" onclick="toggleRuleManager()">📋 管理规则库</button>
+    </div>
+
+    <div class="learning-input">
+      <div class="field-label">批量上传 URL 对（每行一个 URL，左右两列一一对应）</div>
+      <div class="dual-input-container">
+        <div class="dual-input-col">
+          <div class="col-label">📥 原始 URL</div>
+          <textarea id="originalUrlsInput" placeholder="https://example.com/page?id=123&utm_source=twitter&lang=zh
+https://shop.example.com/item?pid=456&fbclid=xxx&ref=home
+https://github.com/user/repo?tab=readme&utm_source=google"></textarea>
+          <div class="line-count" id="originalLineCount">0 行</div>
+        </div>
+        <div class="dual-input-col">
+          <div class="col-label">✨ 归一化后 URL</div>
+          <textarea id="cleanedUrlsInput" placeholder="https://example.com/page?id=123&lang=zh
+https://shop.example.com/item?pid=456&ref=home
+https://github.com/user/repo?tab=readme"></textarea>
+          <div class="line-count" id="cleanedLineCount">0 行</div>
+        </div>
+      </div>
+      <div id="validationError" class="validation-error" style="display:none;"></div>
+      <div class="btn-row" style="margin-top: 12px;">
+        <button class="btn-primary" onclick="learnFromPairs()">🚀 开始学习</button>
+        <button class="btn-ghost" onclick="clearLearningInput()">清空</button>
+      </div>
+    </div>
+
+    <div id="learningResult" class="learning-result" style="display:none;">
+      <div class="result-title">✅ 学习完成</div>
+      <div id="learningStats"></div>
+      <div id="learnedRulesPreview"></div>
+    </div>
+  </div>
+
+  <!-- 规则管理面板 -->
+  <div class="rule-manager" id="ruleManager" style="display:none;">
+    <div class="manager-header">
+      <h3>📋 定制规则库</h3>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-ghost btn-small" onclick="exportRules()">📤 导出</button>
+        <button class="btn-ghost btn-small" onclick="importRules()">📥 导入</button>
+        <button class="btn-ghost btn-small" onclick="clearCustomRules()">🗑️ 清空</button>
+        <button class="btn-ghost btn-small" onclick="toggleRuleManager()">✕</button>
+      </div>
+    </div>
+    <div id="rulesList"></div>
+  </div>
+
+  <footer>
+    完全本地运行，不上传任何数据 · 智能归一化工具 v3.2 · 支持规则学习+Fragment参数
+  </footer>
+
+</div>
+<script>
+// ── 全局变量 ────────────────────────────────────
+let rules = null;
+let currentOriginalUrl = '';
+let variants = [];
+let customRules = {}; // 定制规则库，格式: { "domain.com": { paths: {}, globalKeep: [], globalRemove: [] } }
+
+const FALLBACK_RULES = {
+  providers: {
+    "global-utm": {
+      urlPattern: ".*", completeProvider: false,
+      rules: ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_id",
+              "utm_source_platform","utm_creative_format","utm_marketing_tactic"]
+    },
+    "global-tracking": {
+      urlPattern: ".*", completeProvider: false,
+      rules: ["fbclid","gclid","gclsrc","gad_source","msclkid","twclid","igshid","yclid",
+              "zanpid","mc_cid","mc_eid","_hsenc","_hsmi","mkt_tok","trk","trkCampaign",
+              "sc_campaign","sc_channel","sc_content","sc_medium","sc_outcome","sc_geo","ssp","ssa"]
+    },
+    "global-session": {
+      urlPattern: ".*", completeProvider: false,
+      rules: ["si","pp","feature","rb_clickid","s_cid","ncid","cmpid",
+              "cmpSource","cmpMedium","cmpCampaign"]
+    }
+  }
+};
+
+// 必需参数白名单（基于常见网站）
+const ESSENTIAL_PARAMS = {
+  'youtube.com': ['v', 't', 'list'],
+  'youtu.be': ['t'],
+  'amazon.com': ['dp', 'th', 'psc'],
+  'amazon.cn': ['dp', 'th'],
+  'github.com': ['tab', 'q', 'type'],
+  'twitter.com': ['s', 'q'],
+  'x.com': ['s', 'q'],
+  'stackoverflow.com': ['q', 'tab'],
+  'google.com': ['q', 'tbm'],
+  'bing.com': ['q'],
+  'bilibili.com': ['bvid', 'p', 't'],
+  'taobao.com': ['id'],
+  'tmall.com': ['id'],
+  'jd.com': ['id'],
+};
+
+// ── 统一参数提取（支持查询参数+Fragment参数） ────
+function extractAllParams(url) {
+  const params = [];
+  
+  // 1. 提取查询参数 (? 到 # 之间)
+  url.searchParams.forEach((value, key) => {
+    params.push({ 
+      type: 'query', 
+      key, 
+      value, 
+      display: `${key}=${value}` 
+    });
+  });
+  
+  // 2. 解析Fragment (# 之后)
+  if (url.hash) {
+    let fragment = url.hash.slice(1); // 去掉开头的#
+    
+    // 去掉Hashbang的!前缀
+    if (fragment.startsWith('!')) {
+      fragment = fragment.slice(1);
+    }
+    
+    // 尝试解析为参数形式 (包含=或&)
+    if (fragment.includes('=') || fragment.includes('&')) {
+      // 处理 #key1=val1&key2=val2 形式
+      fragment.split('&').forEach(part => {
+        if (part.includes('=')) {
+          const [key, ...valueParts] = part.split('=');
+          const value = valueParts.join('='); // 处理value中包含=的情况
+          if (key) {
+            params.push({ 
+              type: 'fragment', 
+              key, 
+              value, 
+              display: `${key}=${value}` 
+            });
+          }
+        } else if (part) {
+          // 单独的key（无值）
+          params.push({ 
+            type: 'fragment', 
+            key: part, 
+            value: null, 
+            display: part 
+          });
+        }
+      });
+    } else if (fragment) {
+      // 纯锚点 #section
+      params.push({ 
+        type: 'fragment', 
+        key: fragment, 
+        value: null, 
+        display: fragment 
+      });
+    }
+  }
+  
+  return params;
+}
+
+// 根据保留的参数重建URL
+function buildURLFromParams(baseUrl, paramsToKeep) {
+  const url = new URL(baseUrl.origin + baseUrl.pathname);
+  
+  // 重建查询参数
+  paramsToKeep
+    .filter(p => p.type === 'query')
+    .forEach(p => url.searchParams.set(p.key, p.value));
+  
+  // 重建Fragment
+  const fragmentParams = paramsToKeep.filter(p => p.type === 'fragment');
+  if (fragmentParams.length > 0) {
+    url.hash = fragmentParams.map(p => p.display).join('&');
+  }
+  
+  return url.href;
+}
+
+// 应用定制规则（用于参数评分）
+function applyCustomRules(paramName, hostname, pathname) {
+  const domainRule = customRules[hostname];
+  if (!domainRule) return null;
+
+  // 优先匹配路径规则
+  const pathRule = domainRule.paths[pathname];
+  if (pathRule) {
+    if (pathRule.keep.includes(paramName)) {
+      return { score: 3, reason: '定制规则（路径级保留）' };
+    }
+    if (pathRule.remove.includes(paramName)) {
+      return { score: 0, reason: '定制规则（路径级删除）' };
+    }
+  }
+
+  // 全局规则
+  if (domainRule.globalKeep.includes(paramName)) {
+    return { score: 3, reason: '定制规则（全局保留）' };
+  }
+  if (domainRule.globalRemove.includes(paramName)) {
+    return { score: 0, reason: '定制规则（全局删除）' };
+  }
+
+  return null;
+}
+
+// 参数重要性评分
+function scoreParamImportance(paramName, hostname, pathname = '/') {
+  paramName = paramName.toLowerCase();
+  
+  // 优先检查定制规则（最高优先级）
+  const customResult = applyCustomRules(paramName, hostname, pathname);
+  if (customResult) return customResult;
+  
+  // 检查白名单
+  const domain = Object.keys(ESSENTIAL_PARAMS).find(d => hostname.includes(d));
+  if (domain && ESSENTIAL_PARAMS[domain].includes(paramName)) {
+    return { score: 3, reason: '域名白名单' };
+  }
+  
+  // 高重要性参数
+  const highImportance = ['id', 'v', 'p', 'page', 'q', 'query', 'search', 'tab', 'type', 'category', 'bvid'];
+  if (highImportance.some(h => paramName === h || paramName.includes(h))) {
+    return { score: 3, reason: '核心参数' };
+  }
+  
+  // 追踪参数
+  if (paramName.startsWith('utm_') || ['fbclid', 'gclid', 'msclkid', 'twclid'].includes(paramName)) {
+    return { score: 0, reason: '追踪参数' };
+  }
+  
+  // 会话参数
+  if (['session', 'sid', 'token', '_t', 'timestamp'].some(s => paramName.includes(s))) {
+    return { score: 0, reason: '会话参数' };
+  }
+  
+  // 语言/地区参数
+  if (['lang', 'language', 'locale', 'region', 'hl'].includes(paramName)) {
+    return { score: 2, reason: '语言/地区' };
+  }
+  
+  // 单字母参数（通常不重要）
+  if (paramName.length === 1) {
+    return { score: 1, reason: '单字母参数' };
+  }
+  
+  // 默认中等重要性
+  return { score: 2, reason: '未知参数' };
+}
+
+// ── 规则库加载 ──────────────────────────────────
+async function loadRules() {
+  const bar  = document.getElementById('statusBar');
+  const text = document.getElementById('statusText');
+  for (const src of ['https://rules2.clearurls.xyz/data.minify.json',
+                     'https://rules1.clearurls.xyz/data.minify.json']) {
+    try {
+      const res = await fetch(src, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.providers) {
+        rules = data;
+        bar.className = 'status-bar ok';
+        text.textContent = `规则库已就绪 · ${Object.keys(data.providers).length} 个提供商`;
+        return;
+      }
+    } catch(e) {}
+  }
+  rules = FALLBACK_RULES;
+  bar.className = 'status-bar warn';
+  text.textContent = '规则库加载失败，已降级为内置基础规则';
+}
+
+// ── 智能归一化主流程 ──────────────────────────────
+function startSmartNormalize() {
+  const input = document.getElementById('inputUrl').value.trim();
+  if (!input) return;
+  
+  let url;
+  try { url = new URL(input); } catch(e) { alert('无效的 URL 格式'); return; }
+  
+  currentOriginalUrl = input;
+  variants = [];
+  
+  // 显示面板
+  document.getElementById('paramAnalysis').classList.add('active');
+  document.getElementById('variantsSection').classList.add('active');
+  document.getElementById('customSection').style.display = 'block'; // 显示自定义区域
+  
+  // 分析参数
+  analyzeParams(url);
+  
+  // 生成预设方案
+  generateVariants(url);
+}
+
+// 穷举模式：生成所有可能的参数组合
+function startExhaustiveMode() {
+  const input = document.getElementById('inputUrl').value.trim();
+  if (!input) return;
+  
+  let url;
+  try { url = new URL(input); } catch(e) { alert('无效的 URL 格式'); return; }
+  
+  currentOriginalUrl = input;
+  variants = [];
+  
+  // 提取所有参数（查询参数+Fragment参数）
+  const params = extractAllParams(url);
+  
+  if (params.length === 0) {
+    alert('此URL没有参数(查询参数或Fragment参数),无需穷举');
+    return;
+  }
+  
+  // 参数过多时警告
+  if (params.length > 8) {
+    if (!confirm(`该URL有${params.length}个参数,穷举模式将生成大量预览窗口(可能较慢),是否继续?`)) {
+      return;
+    }
+  }
+  
+  // 显示面板,隐藏自定义区域
+  document.getElementById('paramAnalysis').classList.add('active');
+  document.getElementById('variantsSection').classList.add('active');
+  document.getElementById('customSection').style.display = 'none'; // 隐藏自定义区域
+  
+  // 生成参数分析(显示所有参数)
+  analyzeParamsExhaustive(url, params);
+  
+  // 生成穷举方案
+  generateExhaustiveVariants(url, params);
+}
+
+function analyzeParamsExhaustive(url, params) {
+  const html = `
+    <div class="param-grid">
+      ${params.map((p, idx) => `
+        <div class="param-item">
+          <span class="param-importance">${p.type === 'query' ? '🔵' : '🟣'}</span>
+          <div class="param-name" title="${p.type === 'query' ? '查询参数' : 'Fragment参数'}">${esc(p.display)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="param-hint">
+      🔬 穷举模式：检测到 ${params.length} 个参数，将生成 ${params.length} 个测试方案<br>
+      📋 方案包括：删除所有参数 → 逐步删除后N个参数 → 删除后1个参数（不包括原始URL，已在上方预览）<br>
+      💡 🔵 查询参数 (?) · 🟣 Fragment参数 (#)
+    </div>
+  `;
+  
+  document.getElementById('paramGrid').innerHTML = html;
+}
+
+function generateExhaustiveVariants(url, params) {
+  variants = [];
+  
+  // 方案0: 删除所有参数
+  const variant0 = new URL(url.origin + url.pathname);
+  variants.push({
+    label: `0️⃣ 删除所有参数`,
+    url: variant0.href,
+    removed: params.map(p => p.display),
+    kept: []
+  });
+  
+  // 方案1到N-1: 从后往前逐个删除参数（不包括最后一个"保留所有"，因为和原始URL重复）
+  for (let i = 0; i < params.length - 1; i++) {
+    const keptParams = params.slice(0, i + 1);
+    const removedParams = params.slice(i + 1);
+    
+    // 使用统一的URL构建函数
+    const variantUrl = buildURLFromParams(url, keptParams);
+    
+    const removedCount = params.length - (i + 1);
+    variants.push({
+      label: `${i + 1}️⃣ 删除后${removedCount}个参数`,
+      url: variantUrl,
+      removed: removedParams.map(p => p.display),
+      kept: keptParams.map(p => p.display)
+    });
+  }
+  
+  renderVariants();
+}
+
+function analyzeParams(url) {
+  const params = extractAllParams(url);
+  
+  if (params.length === 0) {
+    document.getElementById('paramGrid').innerHTML = 
+      '<div style="color: var(--text-dimmer); font-size: 12px;">此 URL 没有参数</div>';
+    return;
+  }
+  
+  const analysis = params.map(p => {
+    const { score, reason } = scoreParamImportance(p.key, url.hostname, url.pathname);
+    return { ...p, score, reason };
+  });
+  
+  // 按重要性排序
+  analysis.sort((a, b) => b.score - a.score);
+  
+  const html = `
+    <div class="param-grid">
+      ${analysis.map(p => `
+        <div class="param-item" title="${p.reason} · ${p.type === 'query' ? '查询参数' : 'Fragment参数'}">
+          <span class="param-importance">${p.score >= 3 ? '🟢' : p.score >= 2 ? '🟡' : '🔴'}</span>
+          <div class="param-name">${esc(p.display)} ${p.type === 'fragment' ? '🟣' : ''}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="param-hint">
+      💡 提示：🟢 核心参数（建议保留） · 🟡 可选参数 · 🔴 追踪/无用参数（建议删除） · 🟣 Fragment参数
+    </div>
+  `;
+  
+  document.getElementById('paramGrid').innerHTML = html;
+}
+
+function generateVariants(url) {
+  variants = [];
+  const params = extractAllParams(url);
+  
+  // 方案1: 删除所有参数（最激进）
+  const variant1 = new URL(url.origin + url.pathname);
+  const removed1 = params.map(p => p.display);
+  variants.push({ 
+    label: '方案1: 删除所有参数（最激进）', 
+    url: variant1.href,
+    removed: removed1,
+    kept: []
+  });
+  
+  // 方案2: 仅保留核心参数
+  const removed2 = [];
+  const kept2 = [];
+  const keptParams2 = params.filter(p => {
+    const { score } = scoreParamImportance(p.key, url.hostname, url.pathname);
+    if (score >= 3) {
+      kept2.push(p.display);
+      return true;
+    } else {
+      removed2.push(p.display);
+      return false;
+    }
+  });
+  const variant2 = buildURLFromParams(url, keptParams2);
+  variants.push({ 
+    label: '方案2: 仅保留核心参数', 
+    url: variant2,
+    removed: removed2,
+    kept: kept2
+  });
+  
+  // 方案3: 保留核心+可选参数（推荐）
+  const removed3 = [];
+  const kept3 = [];
+  const keptParams3 = params.filter(p => {
+    const { score } = scoreParamImportance(p.key, url.hostname, url.pathname);
+    if (score >= 2) {
+      kept3.push(p.display);
+      return true;
+    } else {
+      removed3.push(p.display);
+      return false;
+    }
+  });
+  const variant3 = buildURLFromParams(url, keptParams3);
+  variants.push({ 
+    label: '方案3: 保留核心+可选参数（推荐）', 
+    url: variant3,
+    removed: removed3,
+    kept: kept3
+  });
+  
+  // 方案4: 仅删除追踪参数（最保守，参考 ClearURLs 规则）
+  const removed4 = [];
+  const kept4 = [];
+  const keptParams4 = params.filter(p => {
+    const { score } = scoreParamImportance(p.key, url.hostname, url.pathname);
+    if (score > 0) {
+      kept4.push(p.display);
+      return true;
+    } else {
+      removed4.push(p.display);
+      return false;
+    }
+  });
+  const variant4 = buildURLFromParams(url, keptParams4);
+  variants.push({ 
+    label: '方案4: 仅删除追踪参数（最保守，参考 ClearURLs 规则）', 
+    url: variant4,
+    removed: removed4,
+    kept: kept4
+  });
+  
+  renderVariants();
+}
+
+function renderVariants() {
+  const container = document.getElementById('variantsList');
+  container.innerHTML = '';
+  
+  // 先添加原始 URL 卡片
+  const originalCard = createVariantCard('原始 URL', currentOriginalUrl, true, false);
+  container.appendChild(originalCard);
+  
+  // 添加所有方案卡片(预设方案isCustom=false,自定义方案isCustom=true)
+  variants.forEach(v => {
+    const isCustom = v.label.includes('自定义方案');
+    const card = createVariantCard(v.label, v.url, false, isCustom, v.removed || [], v.kept || []);
+    container.appendChild(card);
+  });
+  
+  // 设置自定义输入框默认值为原始URL,方便快速创建变体
+  document.getElementById('customUrl').value = currentOriginalUrl;
+}
+
+function createVariantCard(label, url, isOriginal, isCustom = false, removed = [], kept = []) {
+  const card = document.createElement('div');
+  card.className = 'variant-card';
+  
+  // 生成唯一ID用于标识这个卡片
+  const cardId = 'card-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  card.id = cardId;
+  
+  // 只有自定义方案才能编辑(原始URL和预设方案都不能编辑)
+  const isReadonly = isOriginal || !isCustom;
+  
+  // 生成参数详情HTML
+  let paramsDetailHtml = '';
+  if (!isOriginal && (removed.length > 0 || kept.length > 0)) {
+    paramsDetailHtml = '<div class="params-detail">';
+    if (removed.length > 0) {
+      paramsDetailHtml += `<div class="params-removed">❌ 已删除: ${removed.map(p => `<code>${esc(p)}</code>`).join(', ')}</div>`;
+    }
+    if (kept.length > 0) {
+      paramsDetailHtml += `<div class="params-kept">✓ 保留: ${kept.map(p => `<code>${esc(p)}</code>`).join(', ')}</div>`;
+    }
+    paramsDetailHtml += '</div>';
+  }
+  
+  card.innerHTML = `
+    <div class="variant-header">
+      <span class="variant-label">${esc(label)}</span>
+      <div style="display: flex; gap: 6px;">
+        <button class="btn-ghost btn-small" onclick="window.open(document.getElementById('${cardId}-url').value, '_blank')">打开</button>
+        <button class="btn-ghost btn-small" onclick="copyUrl(document.getElementById('${cardId}-url').value, this)">复制</button>
+      </div>
+    </div>
+    ${paramsDetailHtml}
+    <div class="variant-url-editable">
+      <input type="text" id="${cardId}-url" class="variant-url-input" value="${esc(url)}" ${isReadonly ? 'readonly' : ''}>
+      ${isCustom ? `<button class="btn-ghost btn-small" onclick="refreshSinglePreview('${cardId}')">🔄 刷新预览</button>` : ''}
+    </div>
+    <div class="preview-box">
+      <div class="preview-header">
+        <span class="preview-title">预览</span>
+        <button class="btn-ghost btn-small" onclick="copyUrl(document.getElementById('${cardId}-url').value, this)">复制链接</button>
+      </div>
+      <iframe class="preview-iframe" src="${esc(url)}" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+      <div class="preview-status" data-url="${esc(url)}">正在加载...</div>
+    </div>
+  `;
+  
+  // 监听 iframe 加载状态
+  setTimeout(() => {
+    const iframe = card.querySelector('.preview-iframe');
+    const status = card.querySelector('.preview-status');
+    
+    let loaded = false;
+    let timeout = setTimeout(() => {
+      if (!loaded) {
+        status.textContent = '⚠ 网站拒绝在 iframe 中显示，请点击"打开"按钮';
+        status.classList.add('error');
+      }
+    }, 5000);
+    
+    iframe.onload = () => {
+      loaded = true;
+      clearTimeout(timeout);
+      // 只要能触发 onload，说明页面加载成功
+      // 跨域限制不影响预览效果
+      status.textContent = '✓ 预览已加载(部分网站可能限制iframe显示，请使用"打开"按钮)';
+      status.classList.remove('error');
+    };
+    
+    iframe.onerror = () => {
+      loaded = true;
+      clearTimeout(timeout);
+      status.textContent = '✗ 加载失败';
+      status.classList.add('error');
+    };
+  }, 100);
+  
+  return card;
+}
+
+function addCustomVariant() {
+  const input = document.getElementById('customUrl');
+  const url = input.value.trim();
+  
+  if (!url) {
+    alert('请输入自定义 URL');
+    return;
+  }
+  
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    alert('URL 必须以 http:// 或 https:// 开头');
+    return;
+  }
+  
+  // 添加到 variants 数组
+  const customVariant = {
+    label: `自定义方案 ${variants.filter(v => v.label.includes('自定义')).length + 1}`,
+    url: url
+  };
+  
+  variants.push(customVariant);
+  
+  // 添加卡片(自定义方案允许编辑)
+  const container = document.getElementById('variantsList');
+  const card = createVariantCard(customVariant.label, customVariant.url, false, true);
+  container.appendChild(card);
+  
+  // 改为显示原始URL（如果存在），方便继续添加变体
+  if (currentOriginalUrl) {
+    input.value = currentOriginalUrl;
+  }
+  // 如果没有原始URL，保持当前URL不变，方便用户继续修改
+}
+
+// ── 工具函数 ──────────────────────────────────
+function copyUrl(url, btn) {
+  navigator.clipboard.writeText(url).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+function refreshAllPreviews() {
+  const iframes = document.querySelectorAll('.preview-iframe');
+  iframes.forEach(iframe => {
+    const status = iframe.parentElement.parentElement.querySelector('.preview-status');
+    status.textContent = '正在刷新...';
+    status.classList.remove('error');
+    iframe.src = iframe.src;
+  });
+}
+
+function openAllInTabs() {
+  if (!currentOriginalUrl) {
+    alert('请先进行智能分析');
+    return;
+  }
+  
+  // 收集所有卡片中的实际URL
+  const allCards = document.querySelectorAll('.variant-card');
+  const urls = [];
+  
+  allCards.forEach(card => {
+    const urlInput = card.querySelector('.variant-url-input');
+    if (urlInput && urlInput.value.trim()) {
+      urls.push(urlInput.value.trim());
+    }
+  });
+  
+  if (urls.length === 0) {
+    alert('没有找到可打开的URL');
+    return;
+  }
+  
+  // 立即打开第一个URL
+  window.open(urls[0], '_blank');
+  
+  // 延迟打开其他URL，避免浏览器阻止弹窗
+  let delay = 300;
+  for (let i = 1; i < urls.length; i++) {
+    setTimeout(() => {
+      window.open(urls[i], '_blank');
+    }, delay);
+    delay += 300;
+  }
+  
+  alert(`已在新标签页中打开 ${urls.length} 个页面，请在浏览器标签中对比查看`);
+}
+
+function clearAll() {
+  document.getElementById('inputUrl').value = '';
+  document.getElementById('paramAnalysis').classList.remove('active');
+  document.getElementById('variantsSection').classList.remove('active');
+  document.getElementById('customSection').style.display = 'none';
+  document.getElementById('variantsList').innerHTML = '';
+  variants = [];
+  currentOriginalUrl = '';
+}
+
+function refreshSinglePreview(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  
+  const urlInput = document.getElementById(`${cardId}-url`);
+  const iframe = card.querySelector('.preview-iframe');
+  const status = card.querySelector('.preview-status');
+  
+  const newUrl = urlInput.value.trim();
+  
+  if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+    alert('URL 必须以 http:// 或 https:// 开头');
+    return;
+  }
+  
+  // 更新iframe
+  status.textContent = '正在加载...';
+  status.classList.remove('error');
+  iframe.src = newUrl;
+  
+  // 重新设置加载监听
+  let loaded = false;
+  let timeout = setTimeout(() => {
+    if (!loaded) {
+      status.textContent = '⚠ 网站拒绝在 iframe 中显示，请点击"打开"按钮';
+      status.classList.add('error');
+    }
+  }, 5000);
+  
+  iframe.onload = () => {
+    loaded = true;
+    clearTimeout(timeout);
+    status.textContent = '✓ 预览加载成功';
+    status.classList.remove('error');
+  };
+  
+  iframe.onerror = () => {
+    loaded = true;
+    clearTimeout(timeout);
+    status.textContent = '✗ 加载失败';
+    status.classList.add('error');
+  };
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 规则学习系统 ──────────────────────────────────
+
+// 从 localStorage 加载定制规则
+function loadCustomRules() {
+  const stored = localStorage.getItem('urlCleanerCustomRules');
+  if (stored) {
+    try {
+      customRules = JSON.parse(stored);
+      console.log('已加载定制规则:', customRules);
+    } catch (e) {
+      console.error('加载定制规则失败:', e);
+      customRules = {};
+    }
+  }
+}
+
+// 保存定制规则到 localStorage
+function saveCustomRules() {
+  localStorage.setItem('urlCleanerCustomRules', JSON.stringify(customRules));
+  console.log('已保存定制规则');
+}
+
+// 智能学习函数：从 URL 对中提取规则
+function learnFromPairs() {
+  const originalInput = document.getElementById('originalUrlsInput').value.trim();
+  const cleanedInput = document.getElementById('cleanedUrlsInput').value.trim();
+  const errorDiv = document.getElementById('validationError');
+  
+  errorDiv.style.display = 'none';
+  
+  if (!originalInput || !cleanedInput) {
+    showError('请在两列都输入 URL');
+    return;
+  }
+
+  // 按换行符分割，过滤空行
+  const originalLines = originalInput.split('\n').map(l => l.trim()).filter(l => l);
+  const cleanedLines = cleanedInput.split('\n').map(l => l.trim()).filter(l => l);
+  
+  // 验证行数是否相等
+  if (originalLines.length !== cleanedLines.length) {
+    showError(`⚠️ 行数不匹配！\n左侧有 ${originalLines.length} 行，右侧有 ${cleanedLines.length} 行。\n请确保两列的 URL 一一对应。`);
+    return;
+  }
+
+  if (originalLines.length === 0) {
+    showError('没有找到有效的 URL');
+    return;
+  }
+
+  const pairs = [];
+  const errors = [];
+
+  // 解析并验证每对 URL
+  originalLines.forEach((originalStr, idx) => {
+    const cleanedStr = cleanedLines[idx];
+    const lineNum = idx + 1;
+
+    try {
+      const original = new URL(originalStr);
+      const cleaned = new URL(cleanedStr);
+      
+      // 验证域名是否一致
+      if (original.hostname !== cleaned.hostname) {
+        errors.push(`第 ${lineNum} 行域名不匹配：\n  原始: ${original.hostname}\n  清洗: ${cleaned.hostname}\n  可能出现了串行！`);
+        return;
+      }
+      
+      // 验证路径是否一致
+      if (original.pathname !== cleaned.pathname) {
+        errors.push(`第 ${lineNum} 行路径不一致：\n  原始: ${original.pathname}\n  清洗: ${cleaned.pathname}`);
+        return;
+      }
+
+      pairs.push({ original, cleaned, line: lineNum });
+    } catch (e) {
+      errors.push(`第 ${lineNum} 行 URL 格式错误: ${e.message}`);
+    }
+  });
+
+  if (errors.length > 0) {
+    showError('<strong>❌ 验证失败，无法保存：</strong>\n' + errors.join('\n\n'));
+    return;
+  }
+
+  if (pairs.length === 0) {
+    showError('没有找到有效的 URL 对');
+    return;
+  }
+
+  // 学习规则
+  const learnedRules = {};
+  let totalKept = 0;
+  let totalRemoved = 0;
+
+  pairs.forEach(({ original, cleaned }) => {
+    const domain = original.hostname;
+    const path = original.pathname;
+
+    if (!learnedRules[domain]) {
+      learnedRules[domain] = {
+        paths: {},
+        globalKeep: new Set(),
+        globalRemove: new Set(),
+        samples: 0
+      };
+    }
+
+    const domainRule = learnedRules[domain];
+    domainRule.samples++;
+
+    // 分析参数差异
+    const originalParams = new Set(original.searchParams.keys());
+    const cleanedParams = new Set(cleaned.searchParams.keys());
+
+    const kept = [...cleanedParams];
+    const removed = [...originalParams].filter(p => !cleanedParams.has(p));
+
+    totalKept += kept.length;
+    totalRemoved += removed.length;
+
+    // 路径级规则
+    if (!domainRule.paths[path]) {
+      domainRule.paths[path] = {
+        keep: new Set(),
+        remove: new Set(),
+        samples: 0
+      };
+    }
+
+    const pathRule = domainRule.paths[path];
+    pathRule.samples++;
+    kept.forEach(p => pathRule.keep.add(p));
+    removed.forEach(p => pathRule.remove.add(p));
+
+    // 全局规则（出现在多个路径中的规则才提升为全局）
+    kept.forEach(p => domainRule.globalKeep.add(p));
+    removed.forEach(p => domainRule.globalRemove.add(p));
+  });
+
+  // 合并到定制规则库
+  Object.keys(learnedRules).forEach(domain => {
+    const learned = learnedRules[domain];
+    
+    if (!customRules[domain]) {
+      customRules[domain] = {
+        paths: {},
+        globalKeep: [],
+        globalRemove: [],
+        samples: 0,
+        lastUpdate: new Date().toISOString()
+      };
+    }
+
+    const existing = customRules[domain];
+    existing.samples += learned.samples;
+    existing.lastUpdate = new Date().toISOString();
+
+    // 合并全局规则
+    learned.globalKeep.forEach(p => {
+      if (!existing.globalKeep.includes(p)) existing.globalKeep.push(p);
+    });
+    learned.globalRemove.forEach(p => {
+      if (!existing.globalRemove.includes(p)) existing.globalRemove.push(p);
+    });
+
+    // 合并路径规则
+    Object.keys(learned.paths).forEach(path => {
+      if (!existing.paths[path]) {
+        existing.paths[path] = { keep: [], remove: [], samples: 0 };
+      }
+      
+      const pathRule = existing.paths[path];
+      pathRule.samples += learned.paths[path].samples;
+      
+      learned.paths[path].keep.forEach(p => {
+        if (!pathRule.keep.includes(p)) pathRule.keep.push(p);
+      });
+      learned.paths[path].remove.forEach(p => {
+        if (!pathRule.remove.includes(p)) pathRule.remove.push(p);
+      });
+    });
+  });
+
+  saveCustomRules();
+
+  // 显示学习结果
+  const resultDiv = document.getElementById('learningResult');
+  const statsDiv = document.getElementById('learningStats');
+  const previewDiv = document.getElementById('learnedRulesPreview');
+
+  statsDiv.innerHTML = `
+    <div>📊 学习统计:</div>
+    <div>• 处理了 <strong>${pairs.length}</strong> 对 URL</div>
+    <div>• 涉及 <strong>${Object.keys(learnedRules).length}</strong> 个域名</div>
+    <div>• 保留参数 <strong>${totalKept}</strong> 次，删除参数 <strong>${totalRemoved}</strong> 次</div>
+  `;
+
+  let previewHTML = '<div><strong>新增规则预览:</strong></div>';
+  Object.keys(learnedRules).forEach(domain => {
+    const rule = learnedRules[domain];
+    previewHTML += `<div style="margin-top:8px; padding:8px; border-left:2px solid var(--accent2);">`;
+    previewHTML += `<div style="color:var(--accent2); font-weight:600;">${esc(domain)}</div>`;
+    previewHTML += `<div>样本数: ${rule.samples}</div>`;
+    if (rule.globalKeep.size > 0) {
+      previewHTML += `<div>✓ 保留: ${[...rule.globalKeep].map(esc).join(', ')}</div>`;
+    }
+    if (rule.globalRemove.size > 0) {
+      previewHTML += `<div>✗ 删除: ${[...rule.globalRemove].map(esc).join(', ')}</div>`;
+    }
+    previewHTML += `</div>`;
+  });
+
+  previewDiv.innerHTML = previewHTML;
+  resultDiv.style.display = 'block';
+}
+
+// 显示验证错误
+function showError(message) {
+  const errorDiv = document.getElementById('validationError');
+  errorDiv.innerHTML = message.replace(/\n/g, '<br>');
+  errorDiv.style.display = 'block';
+  errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// 更新行数计数
+function updateLineCounts() {
+  const originalInput = document.getElementById('originalUrlsInput');
+  const cleanedInput = document.getElementById('cleanedUrlsInput');
+  
+  const originalCount = originalInput.value.split('\n').filter(l => l.trim()).length;
+  const cleanedCount = cleanedInput.value.split('\n').filter(l => l.trim()).length;
+  
+  document.getElementById('originalLineCount').textContent = `${originalCount} 行`;
+  document.getElementById('cleanedLineCount').textContent = `${cleanedCount} 行`;
+  
+  // 行数不匹配时高亮显示
+  const isMatch = originalCount === cleanedCount && originalCount > 0;
+  document.getElementById('originalLineCount').style.color = isMatch ? 'var(--success)' : 'var(--text-dimmer)';
+  document.getElementById('cleanedLineCount').style.color = isMatch ? 'var(--success)' : 'var(--text-dimmer)';
+}
+
+// 清空学习输入框
+function clearLearningInput() {
+  document.getElementById('originalUrlsInput').value = '';
+  document.getElementById('cleanedUrlsInput').value = '';
+  document.getElementById('learningResult').style.display = 'none';
+  document.getElementById('validationError').style.display = 'none';
+  updateLineCounts();
+}
+
+// 切换规则管理面板
+function toggleRuleManager() {
+  const panel = document.getElementById('ruleManager');
+  if (panel.style.display === 'none') {
+    renderRulesList();
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+// 渲染规则列表
+function renderRulesList() {
+  const container = document.getElementById('rulesList');
+  
+  if (Object.keys(customRules).length === 0) {
+    container.innerHTML = '<div style="text-align:center; color:var(--text-dim); padding:20px;">暂无定制规则</div>';
+    return;
+  }
+
+  let html = '';
+  Object.keys(customRules).sort().forEach(domain => {
+    const rule = customRules[domain];
+    const pathCount = Object.keys(rule.paths).length;
+    
+    html += `<div class="rule-item">`;
+    html += `<div class="rule-domain">${esc(domain)}</div>`;
+    html += `<div class="rule-details">`;
+    html += `样本数: ${rule.samples} | 路径规则: ${pathCount} 条 | 更新: ${new Date(rule.lastUpdate).toLocaleString('zh-CN')}<br>`;
+    
+    if (rule.globalKeep.length > 0) {
+      html += `✓ 全局保留: ${rule.globalKeep.map(esc).join(', ')}<br>`;
+    }
+    if (rule.globalRemove.length > 0) {
+      html += `✗ 全局删除: ${rule.globalRemove.map(esc).join(', ')}`;
+    }
+    
+    html += `</div>`;
+    html += `<div class="rule-actions">`;
+    html += `<button class="btn-ghost btn-small" onclick="deleteDomainRule('${esc(domain)}')">删除</button>`;
+    html += `</div>`;
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// 删除单个域名规则
+function deleteDomainRule(domain) {
+  if (confirm(`确定删除 ${domain} 的所有规则吗？`)) {
+    delete customRules[domain];
+    saveCustomRules();
+    renderRulesList();
+  }
+}
+
+// 清空所有定制规则
+function clearCustomRules() {
+  if (confirm('确定清空所有定制规则吗？此操作不可恢复！')) {
+    customRules = {};
+    saveCustomRules();
+    renderRulesList();
+  }
+}
+
+// 导出规则
+function exportRules() {
+  const dataStr = JSON.stringify(customRules, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `url-cleaner-rules-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 导入规则
+function importRules() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        
+        // 合并规则
+        Object.keys(imported).forEach(domain => {
+          if (!customRules[domain]) {
+            customRules[domain] = imported[domain];
+          } else {
+            // 合并已有域名的规则
+            const existing = customRules[domain];
+            const incoming = imported[domain];
+            
+            existing.samples += incoming.samples || 0;
+            existing.lastUpdate = new Date().toISOString();
+            
+            incoming.globalKeep.forEach(p => {
+              if (!existing.globalKeep.includes(p)) existing.globalKeep.push(p);
+            });
+            incoming.globalRemove.forEach(p => {
+              if (!existing.globalRemove.includes(p)) existing.globalRemove.push(p);
+            });
+            
+            Object.keys(incoming.paths).forEach(path => {
+              if (!existing.paths[path]) {
+                existing.paths[path] = incoming.paths[path];
+              }
+            });
+          }
+        });
+
+        saveCustomRules();
+        renderRulesList();
+        alert(`成功导入 ${Object.keys(imported).length} 个域名的规则！`);
+      } catch (err) {
+        alert('导入失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// 快捷键
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='Enter') startSmartNormalize();
+});
+
+loadRules();
+loadCustomRules(); // 启动时加载定制规则
+
+// 绑定输入框监听器，实时更新行数
+document.addEventListener('DOMContentLoaded', () => {
+  const originalInput = document.getElementById('originalUrlsInput');
+  const cleanedInput = document.getElementById('cleanedUrlsInput');
+  
+  if (originalInput) {
+    originalInput.addEventListener('input', updateLineCounts);
+  }
+  if (cleanedInput) {
+    cleanedInput.addEventListener('input', updateLineCounts);
+  }
+  
+  // 初始化行数显示
+  updateLineCounts();
+});
+
+</script>
+</body>
+</html>
