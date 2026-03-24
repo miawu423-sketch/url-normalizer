@@ -669,8 +669,8 @@
   </div>
 
   <div class="btn-row">
-    <button class="btn-primary" onclick="startSmartNormalize()">🧠 智能分析</button>
-    <button class="btn-primary" onclick="startExhaustiveMode()">🔬 穷举模式</button>
+    <button class="btn-primary" onclick="startSmartNormalize()">🧠 智能分析<span style="font-size: 0.8em; opacity: 0.7; margin-left: 4px;">（适合参数多，6个及以上）</span></button>
+    <button class="btn-primary" onclick="startExhaustiveMode()">🔬 穷举模式<span style="font-size: 0.8em; opacity: 0.7; margin-left: 4px;">（适合参数少，5个及以下）</span></button>
     <button class="btn-ghost" onclick="clearAll()">清空</button>
   </div>
 
@@ -1383,12 +1383,12 @@ function openAllInTabs() {
   window.open(urls[0], '_blank');
   
   // 延迟打开其他URL，避免浏览器阻止弹窗
-  let delay = 300;
+  let delay = 500;
   for (let i = 1; i < urls.length; i++) {
     setTimeout(() => {
       window.open(urls[i], '_blank');
     }, delay);
-    delay += 300;
+    delay += 500;
   }
   
   alert(`已在新标签页中打开 ${urls.length} 个页面，请在浏览器标签中对比查看`);
