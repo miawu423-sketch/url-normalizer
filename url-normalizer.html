@@ -281,7 +281,7 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    min-height: 580px;
   }
 
   .variant-header {
@@ -1233,7 +1233,11 @@ function createVariantCard(label, url, isOriginal, isCustom = false, removed = [
   
   // 生成参数详情HTML
   let paramsDetailHtml = '';
-  if (!isOriginal && (removed.length > 0 || kept.length > 0)) {
+  if (isOriginal) {
+    // 原始URL卡片：显示占位区域，保持视觉对齐
+    paramsDetailHtml = '<div class="params-detail" style="color: var(--text-dim); font-style: italic;">📌 这是原始完整URL，下方展示归一化后的各种方案</div>';
+  } else if (removed.length > 0 || kept.length > 0) {
+    // 其他方案卡片：显示参数变化详情
     paramsDetailHtml = '<div class="params-detail">';
     if (removed.length > 0) {
       paramsDetailHtml += `<div class="params-removed">❌ 已删除: ${removed.map(p => `<code>${esc(p)}</code>`).join(', ')}</div>`;
