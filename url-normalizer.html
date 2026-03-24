@@ -752,7 +752,7 @@ https://github.com/user/repo?tab=readme"></textarea>
   </div>
 
   <footer>
-    完全本地运行，不上传任何数据 · 智能归一化工具 v3.2 · 支持规则学习+Fragment参数
+    开源免费，不上传任何数据 · 智能归一化工具 v3.2 · 支持规则学习+Fragment参数
   </footer>
 
 </div>
@@ -1237,7 +1237,7 @@ function createVariantCard(label, url, isOriginal, isCustom = false, removed = [
   let paramsDetailHtml = '';
   if (isOriginal) {
     // 原始URL卡片：显示占位区域，保持视觉对齐
-    paramsDetailHtml = '<div class="params-detail" style="color: var(--text-dim); font-style: italic;">📌 这是原始完整URL，下方展示归一化后的各种方案</div>';
+    paramsDetailHtml = '<div class="params-detail" style="color: var(--text-dim); font-style: italic;">📌 这是原始完整URL，请与归一化后的各种方案对比内容是否改变</div>';
   } else if (removed.length > 0 || kept.length > 0) {
     // 其他方案卡片：显示参数变化详情
     paramsDetailHtml = '<div class="params-detail">';
